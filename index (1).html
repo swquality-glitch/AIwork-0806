@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 工作站 · 提示詞庫</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Noto Serif TC (display), Noto Sans TC (body), IBM Plex Mono (data / labels) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- PapaParse for Google Sheets CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: {
+                            50: '#eef1f5',
+                            100: '#dde3ec',
+                            200: '#b9c5d6',
+                            400: '#5b6b82',
+                            600: '#33465f',
+                            700: '#233247',
+                            800: '#182338',
+                            900: '#0f1826',
+                        },
+                        brass: {
+                            50: '#faf6ee',
+                            100: '#f1e6d1',
+                            200: '#e2cca3',
+                            400: '#c7a877',
+                            500: '#a9835a',
+                            600: '#8c6a45',
+                            700: '#6f5336',
+                        },
+                        paper: '#f7f5f0',
+                    },
+                    fontFamily: {
+                        serif: ['Noto Serif TC', 'serif'],
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                        mono: ['IBM Plex Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f7f5f0;
+            font-family: 'Noto Sans TC', sans-serif;
+            color: #233247;
+        }
+
+        .eyebrow {
+            font-family: 'IBM Plex Mono', monospace;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .card-top-line {
+            height: 3px;
+            background: #a9835a;
+        }
+
+        .fade-mask {
+            background: linear-gradient(to top, #f5f2ea 10%, transparent 100%);
+        }
+
+        .filter-btn-active {
+            background-color: #182338 !important;
+            color: #f7f5f0 !important;
+            border-color: #182338 !important;
+        }
+
+        .nav-tab-active {
+            background-color: #a9835a;
+            color: #182338;
+        }
+
+        ::selection {
+            background: #e2cca3;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-12">
+
+    <!-- Top Navigation Header -->
+    <header class="w-full bg-ink-900 border-b border-ink-700 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Brand Mark -->
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 border border-brass-400/70 flex items-center justify-center text-brass-400 font-serif font-bold text-sm">AI</div>
+                <div class="leading-none">
+                    <div class="font-serif font-semibold text-lg tracking-wide text-paper">AI 工作站</div>
+                    <div class="eyebrow text-[10px] text-ink-200/70">Prompt Library &amp; Operations</div>
+                </div>
+            </div>
+
+            <!-- Header Action Tabs -->
+            <div class="flex items-center space-x-1 bg-ink-800 border border-ink-700 p-1 text-xs sm:text-sm font-medium">
+                <button id="tab-single" class="nav-tab-active flex items-center space-x-1.5 px-3 sm:px-4 py-2 transition-all duration-200">
+                    <i class="fa-regular fa-folder-closed"></i>
+                    <span>單項提示詞</span>
+                </button>
+                <button id="tab-flow" class="text-ink-100 hover:text-paper px-3 sm:px-4 py-2 transition-all duration-200 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-bolt text-brass-400"></i>
+                    <span>流程提示詞</span>
+                </button>
+                <button id="tab-files" class="text-ink-100 hover:text-paper px-3 sm:px-4 py-2 transition-all duration-200 flex items-center space-x-1.5">
+                    <i class="fa-regular fa-folder-open text-ink-200"></i>
+                    <span>工作流檔案</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex-1 w-full space-y-5">
+
+        <!-- Search Input Bar Card -->
+        <div class="bg-white border border-ink-100 p-3 sm:p-4">
+            <div class="relative flex items-center">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 text-ink-400 text-lg"></i>
+                <input type="text" id="searchInput"
+                    placeholder="搜尋提示詞名稱、任務或內容關鍵字..."
+                    class="w-full pl-11 pr-10 py-3 bg-paper border border-ink-100 text-ink-800 placeholder-ink-400 focus:outline-none focus:ring-1 focus:ring-brass-500 focus:border-brass-500 transition-all text-sm sm:text-base">
+                <button id="clearSearchBtn" class="hidden absolute right-4 text-ink-400 hover:text-ink-700">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Controls Container -->
+        <div class="bg-white border border-ink-100 p-4 sm:p-6 space-y-4">
+            <!-- Row 1: 主軸 -->
+            <div class="flex flex-col sm:flex-row sm:items-center text-xs sm:text-sm">
+                <span class="eyebrow w-20 text-ink-400 shrink-0 mb-2 sm:mb-0">主軸 / Topic</span>
+                <div id="topicFilterContainer" class="flex flex-wrap gap-1.5 sm:gap-2 flex-1">
+                    <!-- Dynamic or Static Tags -->
+                </div>
+            </div>
+
+            <!-- Row 2: 模式 -->
+            <div class="flex flex-col sm:flex-row sm:items-center text-xs sm:text-sm pt-3 border-t border-ink-100">
+                <span class="eyebrow w-20 text-ink-400 shrink-0 mb-2 sm:mb-0">模式 / Mode</span>
+                <div id="modeFilterContainer" class="flex flex-wrap gap-1.5 sm:gap-2 flex-1">
+                    <!-- Mode Buttons -->
+                </div>
+            </div>
+
+            <!-- Row 3: AI工具 -->
+            <div class="flex flex-col sm:flex-row sm:items-center text-xs sm:text-sm pt-3 border-t border-ink-100">
+                <span class="eyebrow w-20 text-ink-400 shrink-0 mb-2 sm:mb-0">工具 / Tool</span>
+                <div id="toolFilterContainer" class="flex flex-wrap gap-1.5 sm:gap-2 flex-1">
+                    <!-- Tool Buttons -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Count and Status Bar -->
+        <div class="flex items-center justify-between text-xs sm:text-sm px-1">
+            <div class="text-ink-400 font-medium flex items-center space-x-2">
+                <span>共 <span id="promptCount" class="font-mono text-brass-600 font-bold">0</span> 個提示詞</span>
+                <span id="loadingSpinner" class="hidden text-brass-600 animate-spin"><i class="fa-solid fa-spinner"></i></span>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <span id="dataSourceBadge" title="" class="eyebrow text-[10px] px-2.5 py-1 border border-ink-200 text-ink-400 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-ink-200"></span> 連線中
+                </span>
+                <button id="refreshDataBtn" title="重新載入資料" class="text-ink-400 hover:text-brass-600 transition-colors p-1">
+                    <i class="fa-solid fa-rotate-right text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Cards Grid Layout -->
+        <div id="promptCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            <!-- Cards will be populated here by JavaScript -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden bg-white p-12 text-center border border-ink-100">
+            <div class="w-14 h-14 border border-brass-400 text-brass-500 flex items-center justify-center mx-auto mb-4 text-xl">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+            </div>
+            <h3 class="font-serif text-lg font-semibold text-ink-800 mb-1">找不到符合的提示詞</h3>
+            <p class="text-ink-400 text-sm mb-4">請嘗試調整搜尋關鍵字或清除篩選條件</p>
+            <button id="resetFiltersBtn" class="px-4 py-2 bg-ink-900 text-paper text-sm font-medium hover:bg-ink-700 transition">
+                重置所有篩選
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Prompt Detail & Edit Modal -->
+    <div id="detailModal" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border-t-2 border-brass-500">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-ink-100 flex items-center justify-between bg-paper">
+                <div class="flex items-center space-x-3">
+                    <span id="modalSubcategory" class="eyebrow text-[10px] px-2 py-1 bg-ink-900 text-paper font-medium">筆記整理</span>
+                    <h3 id="modalTitle" class="font-serif text-lg font-semibold text-ink-800">049-線上課程</h3>
+                </div>
+                <button id="closeModalBtn" class="text-ink-400 hover:text-ink-700 w-8 h-8 flex items-center justify-center hover:bg-ink-100 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto space-y-4 flex-1">
+                <!-- Tags in modal -->
+                <div id="modalTags" class="flex flex-wrap gap-1.5">
+                    <!-- Populated by JS -->
+                </div>
+
+                <div>
+                    <label class="eyebrow block text-[10px] font-semibold text-ink-400 mb-2">提示詞內容 · Prompt Content</label>
+                    <textarea id="modalPromptText" rows="12" class="w-full p-4 bg-paper border border-ink-100 font-mono text-sm text-ink-800 leading-relaxed focus:outline-none focus:ring-1 focus:ring-brass-500 focus:border-brass-500"></textarea>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-ink-100 bg-paper flex items-center justify-between">
+                <span class="text-xs text-ink-400">可在框內微調內容後複製</span>
+                <div class="flex items-center space-x-3">
+                    <button id="closeModalSecondaryBtn" class="px-4 py-2 border border-ink-200 text-ink-600 hover:bg-ink-100 text-sm font-medium transition">關閉</button>
+                    <button id="modalCopyBtn" class="px-5 py-2 bg-ink-900 hover:bg-ink-700 text-paper text-sm font-medium flex items-center space-x-2 transition">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>複製提示詞</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-ink-900 text-paper px-5 py-3 shadow-2xl flex items-center space-x-3 text-sm z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none border-l-2 border-brass-500">
+        <div class="w-6 h-6 bg-brass-500 text-ink-900 rounded-full flex items-center justify-center text-xs">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <span id="toastMsg" class="font-medium">已成功複製 Prompt 到剪貼簿！</span>
+    </div>
+
+    <script>
+        // ============================================================
+        // Google Sheets connection
+        // ============================================================
+        // NOTE: this only works if the sheet is shared as
+        // "Anyone with the link" (Viewer) OR published to the web.
+        // A private sheet will fail with a 401/302-to-login response,
+        // in which case the app automatically falls back to sample data.
+        const SPREADSHEET_ID = '1xnuZYgTD3WNoXXb5WoI_uH2M4Q3nP8feJU1f0PKG14M';
+        const SHEET_GID = '1480282197';
+        const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`;
+
+        // Fallback Mock Data based directly on the provided screenshot
+        const FALLBACK_DATA = [
+            {
+                id: '049',
+                title: '049-線上課程',
+                subcategory: '筆記整理',
+                topic: '筆記',
+                mode: 'AI 助理',
+                tools: ['ChatGPT', 'Gemini AI'],
+                content: `【角色設定】
+你是一位專精於「學習科學」與「知識管理」的 AI 助教。擅長將混亂的課程投影影片（截圖 PDF）轉化為具備邏輯、易於日後複習的高價值筆記。
+
+【任務目標】
+請分析我上傳的 PDF 檔案（由線上課程截圖組成），執行 OCR 文字辨識並進行深度萃取。請針對每一組邏輯相關的內容，自動判斷最適合的整理格式：
+
+觀念/理論型內容：使用「黃金圈法則 (Why/How/What)」解析。`
+            },
+            {
+                id: '050',
+                title: '050-線上課程',
+                subcategory: '筆記整理',
+                topic: '筆記',
+                mode: 'AI 助理',
+                tools: ['ChatGPT', 'Gemini AI'],
+                content: `【角色設定】
+你是一位專精於「學習科學」與「知識管理」的 AI 助教。擅長將混亂的課程投影影片（截圖 PDF）轉化為具備邏輯、易於日後複習的高價值筆記。
+
+【任務目標】
+請分析我上傳的 PDF 檔案（由線上課程截圖組成），進行文字辨識與整理。請針對內容，自動判斷最適合的整理格式。
+並於最後一段，擷取職場可以應用的三個重點，以條列式來呈現。`
+            },
+            {
+                id: '051',
+                title: '051-長篇文章',
+                subcategory: '筆記整理',
+                topic: '筆記',
+                mode: 'AI 協做',
+                tools: ['ChatGPT', 'Gemini AI'],
+                content: `為這一篇長篇文章，進行以下四個步驟，每一個步驟都要提供給文章與標示出來：
+第 1、請為這篇長文件生成一份簡短摘要。
+第 2、請基於上一個摘要，不要遺漏任何專有名詞、數字或關鍵人物，重新生成一份摘要。
+第 3、現在，請將摘要中每一句話都濃縮成更簡潔的表達，同時保留所有事實，讓它讀起來更像新聞標題。
+第 4、最後，請確保摘要能獨立解釋所有提到的概念，不需參照原文。
+
+### 長文如下：`
+            },
+            {
+                id: '052',
+                title: '052-提取練習',
+                subcategory: '筆記精煉',
+                topic: '筆記',
+                mode: 'AI 協思',
+                tools: ['ChatGPT', 'Gemini AI', 'Claude AI'],
+                content: `我閱讀完了關於 [填入具體段落標題] 的內容。現在請幫我進行深度研磨：
+
+1- 底層邏輯提問：針對這段內容的「運作原理」向我提問，測試我是否理解了「為什麼有效」，而非只是記住步驟。
+
+2- 隱喻轉化：如果這段概念有複雜的故事，請幫我將其轉化為一個 50 字以內的「關鍵隱喻」或「原則案例」。
+
+3- 邏輯連動：這段內容與附件中之前的 [填入章節]`
+            },
+            {
+                id: '053',
+                title: '053-社群貼文撰寫',
+                subcategory: '文案構思',
+                topic: '貼文',
+                mode: 'AI 協做',
+                tools: ['ChatGPT', 'Claude AI'],
+                content: `【角色設定】你是一位資深社群行銷專家，擅長撰寫高互動率的爆款貼文。
+【任務需求】請將以下主題轉化為適合 Threads / Facebook 的圖文主題文案：
+1. 吸引人的 Hook 開頭（前兩行）
+2. 條理分明的核心論點（使用適當 Emoji）
+3. 引導互動的結尾提問 (CTA)`
+            },
+            {
+                id: '054',
+                title: '054-心智圖大綱萃取',
+                subcategory: '架構梳理',
+                topic: '心圖',
+                mode: 'AI 助理',
+                tools: ['Gemini Canvas', 'NotebookLM'],
+                content: `請閱讀輸入的文章內容，將其梳理為結構化的 Markdown 樹狀層級，適合直接複製並匯入心智圖軟體（如 XMind 或 MindNode）。包含主題、一級分支、二級子節點與重點關鍵字。`
+            },
+            {
+                id: '055',
+                title: '055-簡報大綱設計',
+                subcategory: '簡報邏輯',
+                topic: '簡報',
+                mode: 'AI 協思',
+                tools: ['ChatGPT', 'Gemini AI'],
+                content: `請擔任我的簡報教練，根據主題 [輸入簡報主題]，設計一份 10 頁的高管報告簡報大綱。每頁需包含：
+- 頁面標題
+- 核心訊息 (One Line Summary)
+- 建議視覺元素與數據呈現方式`
+            }
+        ];
+
+        // Filter categories setup (matching screenshot filters)
+        const TOPICS = ['全部', '寫作', '心圖', '示範', '校正', '秘訣', '程式', '筆記', '貼文', '整理', '簡報'];
+        const MODES = ['全部', 'AI 助理', 'AI 協做', 'AI 協思'];
+        const TOOLS = ['全部', 'ChatGPT', 'Gemini Canvas', 'NotebookLM', 'Gemini AI', 'Claude AI'];
+
+        // State variables
+        let promptsData = [];
+        let selectedTopic = '全部';
+        let selectedMode = '全部';
+        let selectedTool = '全部';
+        let searchQuery = '';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initFiltersUI();
+            setupEventListeners();
+            loadSheetData();
+        });
+
+        // Initialize Filter Buttons HTML
+        function initFiltersUI() {
+            renderFilterRow('topicFilterContainer', TOPICS, selectedTopic, (val) => {
+                selectedTopic = val;
+                filterAndRender();
+            });
+
+            renderFilterRow('modeFilterContainer', MODES, selectedMode, (val) => {
+                selectedMode = val;
+                filterAndRender();
+            });
+
+            renderFilterRow('toolFilterContainer', TOOLS, selectedTool, (val) => {
+                selectedTool = val;
+                filterAndRender();
+            });
+        }
+
+        function renderFilterRow(containerId, items, activeValue, onClickCallback) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-1 sm:px-3.5 sm:py-1.5 border text-ink-600 border-ink-200 bg-white hover:border-brass-400 hover:text-brass-600 transition-all font-medium text-xs sm:text-sm ${
+                    item === activeValue ? 'filter-btn-active' : ''
+                }`;
+                btn.innerText = item;
+                btn.addEventListener('click', () => {
+                    // Update active styles in this row
+                    Array.from(container.children).forEach(child => child.classList.remove('filter-btn-active'));
+                    btn.classList.add('filter-btn-active');
+                    onClickCallback(item);
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        // Setup global listeners
+        function setupEventListeners() {
+            // Search input
+            const searchInput = document.getElementById('searchInput');
+            const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.trim().toLowerCase();
+                clearSearchBtn.classList.toggle('hidden', searchQuery === '');
+                filterAndRender();
+            });
+
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                searchQuery = '';
+                clearSearchBtn.classList.add('hidden');
+                filterAndRender();
+            });
+
+            // Refresh button
+            document.getElementById('refreshDataBtn').addEventListener('click', () => {
+                loadSheetData();
+            });
+
+            // Modal listeners
+            document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+            document.getElementById('closeModalSecondaryBtn').addEventListener('click', closeModal);
+            document.getElementById('detailModal').addEventListener('click', (e) => {
+                if (e.target.id === 'detailModal') closeModal();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeModal();
+            });
+
+            document.getElementById('modalCopyBtn').addEventListener('click', () => {
+                const text = document.getElementById('modalPromptText').value;
+                copyToClipboard(text);
+                closeModal();
+            });
+
+            document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+                selectedTopic = '全部';
+                selectedMode = '全部';
+                selectedTool = '全部';
+                searchQuery = '';
+                document.getElementById('searchInput').value = '';
+                document.getElementById('clearSearchBtn').classList.add('hidden');
+                initFiltersUI();
+                filterAndRender();
+            });
+        }
+
+        // ============================================================
+        // Data loading
+        // ============================================================
+        async function loadSheetData() {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(GOOGLE_SHEET_CSV_URL);
+
+                // A private/unshared sheet does not throw here - Google
+                // responds with a login redirect / non-200 status instead.
+                if (!response.ok) {
+                    throw new Error(`Sheet responded with status ${response.status}`);
+                }
+
+                const csvText = await response.text();
+
+                // Google returns an HTML login page (not CSV) for sheets
+                // that aren't shared - detect that case explicitly.
+                if (csvText.trim().startsWith('<')) {
+                    throw new Error('Received HTML instead of CSV - sheet is likely private');
+                }
+
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        if (results.data && results.data.length > 0) {
+                            promptsData = normalizeSheetData(results.data);
+                            setDataBadge('connected', '已同步 Google 試算表');
+                        } else {
+                            useFallbackData('empty', '試算表暫無資料，顯示示範資料');
+                        }
+                        spinner.classList.add('hidden');
+                        filterAndRender();
+                    },
+                    error: (err) => {
+                        console.warn('PapaParse Error:', err);
+                        useFallbackData('error', '試算表格式異常，顯示示範資料');
+                        spinner.classList.add('hidden');
+                        filterAndRender();
+                    }
+                });
+            } catch (err) {
+                console.warn('Fetch Google Sheet Failed (likely permissions or CORS):', err);
+                useFallbackData(
+                    'private',
+                    '試算表尚未公開，顯示示範資料',
+                    '請將試算表共用設定改為「知道連結的任何人」可檢視，或另行發布到網路後按重新整理'
+                );
+                spinner.classList.add('hidden');
+                filterAndRender();
+            }
+        }
+
+        function useFallbackData(reason, label, tooltip) {
+            promptsData = FALLBACK_DATA;
+            setDataBadge('fallback', label, tooltip);
+        }
+
+        function setDataBadge(state, label, tooltip) {
+            const badge = document.getElementById('dataSourceBadge');
+            const dotColor = state === 'connected' ? 'bg-emerald-600' : 'bg-brass-500';
+            badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span> ${label}`;
+            badge.title = tooltip || '';
+        }
+
+        // Normalize CSV columns into uniform Javascript object.
+        // Header matching is intentionally flexible / bilingual so this
+        // keeps working if the spreadsheet's column names are edited.
+        function normalizeSheetData(data) {
+            return data.map((row, index) => {
+                const id = row['編號'] || row['ID'] || row['Id'] || String(index + 1).padStart(3, '0');
+                const title = row['標題'] || row['Title'] || row['名稱'] || `提示詞 ${index + 1}`;
+                const subcategory = row['副標題'] || row['分類'] || row['筆記分類'] || '一般';
+                const topic = row['主軸'] || row['Topic'] || '筆記';
+                const mode = row['模式'] || row['Mode'] || 'AI 助理';
+
+                // Tools column may be comma / semicolon / full-width-comma /
+                // dun-separator (、) delimited depending on how it was typed.
+                let toolsRaw = row['AI工具'] || row['AI 工具'] || row['工具'] || row['Tools'] || 'ChatGPT, Gemini AI';
+                let tools = Array.isArray(toolsRaw)
+                    ? toolsRaw
+                    : String(toolsRaw).split(/[,;、，\s]+/).map(t => t.trim()).filter(Boolean);
+
+                const content = row['提示詞內容'] || row['Prompt'] || row['內容'] || row['內容關鍵字'] || '';
+
+                return {
+                    id: String(id),
+                    title: title,
+                    subcategory: subcategory,
+                    topic: topic,
+                    mode: mode,
+                    tools: tools,
+                    content: content
+                };
+            });
+        }
+
+        // ============================================================
+        // Filtering & rendering
+        // ============================================================
+        function filterAndRender() {
+            const filtered = promptsData.filter(item => {
+                // Topic Filter
+                if (selectedTopic !== '全部' && item.topic !== selectedTopic) {
+                    // Soft match for tags or content if topic isn't exact
+                    if (!item.title.includes(selectedTopic) && !item.subcategory.includes(selectedTopic)) {
+                        return false;
+                    }
+                }
+
+                // Mode Filter
+                if (selectedMode !== '全部' && item.mode !== selectedMode) {
+                    return false;
+                }
+
+                // Tool Filter
+                if (selectedTool !== '全部') {
+                    const hasTool = item.tools.some(t => t.toLowerCase() === selectedTool.toLowerCase());
+                    if (!hasTool) return false;
+                }
+
+                // Search Query Filter
+                if (searchQuery) {
+                    const matchTitle = item.title.toLowerCase().includes(searchQuery);
+                    const matchContent = item.content.toLowerCase().includes(searchQuery);
+                    const matchSub = item.subcategory.toLowerCase().includes(searchQuery);
+                    const matchTopic = item.topic.toLowerCase().includes(searchQuery);
+                    if (!matchTitle && !matchContent && !matchSub && !matchTopic) return false;
+                }
+
+                return true;
+            });
+
+            // Update Count
+            document.getElementById('promptCount').innerText = filtered.length;
+
+            // Render Grid
+            const grid = document.getElementById('promptCardsGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            grid.innerHTML = '';
+
+            if (filtered.length === 0) {
+                grid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            } else {
+                grid.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+
+                filtered.forEach(item => {
+                    grid.appendChild(createPromptCard(item));
+                });
+            }
+        }
+
+        function createPromptCard(item) {
+            const card = document.createElement('div');
+            card.className = "bg-white border border-ink-100 hover:border-brass-400 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group";
+
+            // Tool tags HTML
+            const tagPills = [
+                `<span class="px-2 py-0.5 bg-ink-50 text-ink-600 text-xs font-medium">${escapeHtml(item.topic)}</span>`,
+                `<span class="px-2 py-0.5 bg-brass-50 text-brass-700 text-xs font-medium">${escapeHtml(item.mode)}</span>`,
+                ...item.tools.map(t => `<span class="px-2 py-0.5 border border-ink-100 text-ink-500 text-xs font-medium">${escapeHtml(t)}</span>`)
+            ].join('');
+
+            card.innerHTML = `
+                <div>
+                    <!-- Brass Accent Line on top -->
+                    <div class="card-top-line"></div>
+
+                    <div class="p-4 sm:p-5 space-y-3">
+                        <!-- Index number + Top Tags -->
+                        <div class="flex items-center justify-between">
+                            <span class="eyebrow text-[10px] text-brass-600">NO. ${escapeHtml(item.id)}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${tagPills}
+                        </div>
+
+                        <!-- Card Header -->
+                        <div>
+                            <div class="text-xs text-ink-400 font-medium mb-0.5">${escapeHtml(item.subcategory)}</div>
+                            <h3 class="font-serif text-base font-semibold text-ink-800 leading-snug group-hover:text-brass-700 transition-colors">${escapeHtml(item.title)}</h3>
+                        </div>
+
+                        <!-- Prompt Content Preview Box -->
+                        <div class="relative bg-[#f5f2ea] border-l-2 border-brass-400 p-3 text-xs text-ink-600 font-mono leading-relaxed h-40 overflow-hidden">
+                            <pre class="whitespace-pre-wrap font-sans">${escapeHtml(item.content)}</pre>
+                            <div class="fade-mask pointer-events-none absolute inset-x-0 bottom-0 h-10"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Footer Actions -->
+                <div class="px-4 pb-4 sm:px-5 sm:pb-5 pt-0 flex items-center space-x-2">
+                    <button class="copy-btn flex-1 py-2.5 px-4 bg-ink-900 hover:bg-ink-700 text-paper text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 active:scale-[0.98] transition-all">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>複製 Prompt</span>
+                    </button>
+                    <button class="edit-btn w-9 h-9 border border-ink-200 text-ink-400 hover:text-ink-700 hover:bg-ink-50 flex items-center justify-center transition-all">
+                        <i class="fa-solid fa-expand text-xs"></i>
+                    </button>
+                </div>
+            `;
+
+            // Bind card event handlers
+            card.querySelector('.copy-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                copyToClipboard(item.content);
+            });
+
+            card.querySelector('.edit-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                openModal(item);
+            });
+
+            return card;
+        }
+
+        function copyToClipboard(text) {
+            if (!text) return;
+
+            const finish = (ok) => showToast(ok ? '已複製 Prompt 到剪貼簿！' : '複製失敗，請手動複製');
+
+            // Prefer the modern async clipboard API when available.
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => finish(true)).catch(() => fallbackCopy(text, finish));
+            } else {
+                fallbackCopy(text, finish);
+            }
+        }
+
+        function fallbackCopy(text, callback) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                callback(true);
+            } catch (err) {
+                console.error('Copy error:', err);
+                callback(false);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // Modal triggers
+        function openModal(item) {
+            document.getElementById('modalTitle').innerText = item.title;
+            document.getElementById('modalSubcategory').innerText = item.subcategory;
+            document.getElementById('modalPromptText').value = item.content;
+
+            const modalTags = document.getElementById('modalTags');
+            modalTags.innerHTML = [
+                `<span class="px-2.5 py-1 bg-ink-50 text-ink-600 text-xs font-medium">${escapeHtml(item.topic)}</span>`,
+                `<span class="px-2.5 py-1 bg-brass-50 text-brass-700 text-xs font-medium">${escapeHtml(item.mode)}</span>`,
+                ...item.tools.map(t => `<span class="px-2.5 py-1 border border-ink-100 text-ink-500 text-xs font-medium">${escapeHtml(t)}</span>`)
+            ].join('');
+
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        // Helper string escaper
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
